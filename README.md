@@ -89,3 +89,5 @@ This project requires the following libraries and tools to run successfully:
 - **Video Backend**: Ensure OpenCV is installed and configured properly for video handling.
 - GPU recommended. 
 
+### **License**
+This software package provided without warranty of any kind and is licensed under the GNU General Public License v3.0. Please cite us.
