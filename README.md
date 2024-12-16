@@ -1,6 +1,13 @@
 # ARBEL(beta) 
 This repository contains tools for the beta version  of ARBEL (Automated Recognition of Behavioral Events in Lab animals). The following files are central to the workflow:
 
+## **Citation**
+ARBEL: A Machine Learning Tool with Light-Based Image Analysis for Automatic Classification of 3D Pain Behaviors.
+
+Omer Barkai, Biyao Zhang,  Bruna Lenfers Turnes, Maryam Arab,  David A Yarmolinsky, Zihe Zhang, Lee B Barrett,  Clifford J Woolf
+
+doi: https://doi.org/10.1101/2024.12.01.625907
+
 ## **ARBEL_TrainClassifier.py**
 This script trains a machine learning classifier to recognize specific behaviors in animals based on features extracted from pose estimation and video data. 
 
@@ -48,7 +55,24 @@ Optional:
 This project requires the following libraries and tools to run successfully:
 
 ### **Python Libraries**
-1. **Core Libraries**
+**Data Manipulation**
+   - `pandas`: Data analysis and manipulation.
+   - `numpy`: Numerical computing.
+
+**Machine Learning**
+   - `xgboost`: Gradient boosting framework for classification and regression tasks.
+   - `sklearn` (scikit-learn): Tools for model evaluation, including:
+     - `f1_score`, `precision_score`, `accuracy_score`, `recall_score`, `r2_score`
+     - `confusion_matrix`, `ConfusionMatrixDisplay`
+   - `shap`: SHAP (SHapley Additive exPlanations) for model explainability.
+
+**Computer Vision**
+   - `cv2` (OpenCV): For video and image processing.
+
+**Pose-estimation (Optional)**
+   - `deeplabcut` (DeepLabCut): For animal video pose-estimation.
+
+**Core Libraries**
    - `os`: For file and directory operations.
    - `time`: For time-related operations.
    - `gc`: For garbage collection.
@@ -56,23 +80,9 @@ This project requires the following libraries and tools to run successfully:
    - `datetime`: For date and time management.
    - `glob`: For pattern matching file operations.
 
-2. **Data Manipulation**
-   - `pandas`: Data analysis and manipulation.
-   - `numpy`: Numerical computing.
-
-3. **Visualization**
+**Visualization**
    - `matplotlib`: For plotting and graphical visualization.
      - Requires a compatible backend (`Qt5Agg`) for interactive plotting.
-
-4. **Computer Vision**
-   - `cv2` (OpenCV): For video and image processing.
-
-5. **Machine Learning**
-   - `xgboost`: Gradient boosting framework for classification and regression tasks.
-   - `sklearn` (scikit-learn): Tools for model evaluation, including:
-     - `f1_score`, `precision_score`, `accuracy_score`, `recall_score`, `r2_score`
-     - `confusion_matrix`, `ConfusionMatrixDisplay`
-   - `shap`: SHAP (SHapley Additive exPlanations) for model explainability.
 
 ### **System Requirements**
 - **Operating System**: Linux or Windows recommended (with compatible Python environment).
