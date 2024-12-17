@@ -49,15 +49,17 @@ fps = 25
 PoseDataFileType='h5'
 #Crop video scoring (from frame to frame)
 From,To=(0, None)
+# Run DeepLabCut
+runDLC=False
+dlc_config_path =r'/config.yaml' #insert DLC config path 
 
 ''' 1. Define behavior video folder '''
-# Form: Experiment  -> Experiments (mouse) -> i_Trial(Before, drug, after, timepoints, etc.)
-# Example: Project (DARPA) > Experiment (Capsaicin 0.1%, morphine, Date) > Subject Trial files (*.H5, *.avi)
-Project = r'H:\Shared drives\WoolfLab\Sunze\SOD1 ALS\cohort5&6/'
+# Example: Project > Experiments (timepoint/doses/pharmacology) > Subject Trial files (*.H5, *.avi)
+Project = r'Example'
 Rig='BlackBox'
-Experiments =['1wk'] #'4wk','6wk','7wk','8wk','9wk','10wk','11wk','12wk','13wk','14wk','15wk','16wk','17wk']
+Experiments =['1wk','4wk','7wk']
 
-dt_before=2
+dt_vel=2
 pix_threshold=0.3
 bp_list=['hrpaw', 'hlpaw','snout']
 square_size=[40,40,40]
@@ -84,13 +86,13 @@ for Experiment in Experiments:
 
     #DLC pose estimation labeling - DLC doesnt re-analyze if it recognized DLC files in the folder
     videos_folder = Experiment_path
-    if len(glob.glob(videos_folder + '/*.' + PoseDataFileType)) != (len(glob.glob(videos_folder + '/body*.mp4')) + len(glob.glob(videos_folder + '/body*.avi'))):
+    if runDLC:
         print(f'DeepLabCut will run only on files that were not analyzed by DLC....')
-        # import deeplabcut
-        # # config_path=r'H:\Shared drives\WoolfLab\Omer\DeepLabCutAlex_UpdatedJan24\config.yaml'
-        # # config_path = r'H:\Shared drives\WoolfLab\Omer\PalmReaderEEG -Omer -2024-03-19\config.yaml'
-        # deeplabcut.analyze_videos(config_path,videos_folder, save_as_csv=False, gputouse=0)
-        # deeplabcut.create_labeled_video(config_path, videos_folder)
+        # Insert DeepLabCut config file to 'config_path'
+        import deeplabcut
+        dlc_config_path=r'\config.yaml' 
+        deeplabcut.analyze_videos(config_path=dlc_config_path,videos_folder, save_as_csv=False, gputouse=0)
+
 
     # Experiment in Folders
     pose_file_list = glob.glob(videos_folder + '/*.' + PoseDataFileType)
@@ -110,7 +112,7 @@ for Experiment in Experiments:
         data_path = videos_folder + pose_data_file
         print("Change the order of ['hrpaw', 'hlpaw','snout'] to  ['hlpaw', 'hrpaw','snout'] if there is a warning about it.")
         X = ARBEL_ExtractFeatures(data_path, video_file_path=videos_folder + '/' + vid_file, bp_list=bp_list,
-                                  dt_before=dt_before, square_size=square_size, pix_threshold=pix_threshold, create_video=False,
+                                  dt_vel=dt_vel, square_size=square_size, pix_threshold=pix_threshold, create_video=False,
                                   Flip=False, n_jobs=32, bp_include_list=None, save_feature_mat=0)
         subject_summary = pd.DataFrame()
 
