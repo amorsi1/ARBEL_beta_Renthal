@@ -35,11 +35,11 @@ from ARBEL_Filter import *
 def ARBEL_ExtractFeatures(pose_data_file,
                 video_file_path,
                 bp_list,
-                dt_before=1, dt_after=1,
+                dt_vel=1, 
                 square_size = 44, pix_threshold = 100,
                 create_video = False, Flip=False, save_feature_mat=0,n_jobs=1, bp_include_list=None):
 
-    PoseFeatures = PoseFeatureExtract(pose_data_file, dt_before, Flip)
+    PoseFeatures = PoseFeatureExtract(pose_data_file, dt_vel, Flip)
     # vid_file = os.path.basename(pose_data_file).split("DLC", 1)[0] + '.avi'
     LumFeatures = PixBrightFeatureExtract(pose_data_file=pose_data_file, video_file_path=video_file_path,
                                           bp_list=bp_list, square_size=square_size, pix_threshold=pix_threshold,
