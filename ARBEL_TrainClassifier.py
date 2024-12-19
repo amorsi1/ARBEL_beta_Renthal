@@ -34,7 +34,7 @@ from AniML_utils_PixBrightnessFeatureExtraction import *
 from AniML_utils_PreprocessingDataset import *
 from AniML_utils_LearningCurve import *
 from AniML_VideoLabel import *
-from AniML_Predict import *
+from ARBEL_Predict import *
 from AniML_utils_Publishing import *
 import glob
 from AniML_utils_LearningCurve import *
@@ -46,29 +46,39 @@ import shap
 import matplotlib.colors as mcolors
 #%% USER DEFINED FIELDS
 #######################
-project_folder = r''
-
 Rig='BlackBox'
 classifier_library_path = rf'ARBEL_Classifiers\{Rig}/'
+os.makedirs(classifier_library_path, exist_ok=True)
+
+
+thresh_tuned=None
+
+# Which classifiers do you want to train (names should match header is target files)
+# Behavior and filtering parameters from Barkai et al. (Uncomment the behavior wanted)
+project_folder = 'BarkaiEtAl'
+Behavior_type = ['Flinching']; min_bout, min_after_bout, max_gap = 4,1,2; thresh_tuned=0.5
+# Behavior_type = ['LickingBiting']; min_bout, min_after_bout, max_gap = 5,1,2; thresh_tuned=0.5
+# Behavior_type = ['Grooming']; min_bout, min_after_bout, max_gap = 1,1,5; thresh_tuned=0.4
+# Behavior_type = ['Rearing']; min_bout, min_after_bout, max_gap = 5,1,0; thresh_tuned=0.65
+
+# Behavior_type = ['Scratching']; min_bout, min_after_bout, max_gap = 14, 1, 14; thresh_tuned=0.65
+
+# project_folder = '/' #r'H:\Shared drives\WoolfLab\Omer\Peoples data\SunzeFlicking/'
+# Behavior_type = ['Flicking']; min_bout, min_after_bout,max_gap=4,3,3; thresh_tuned=0.67
 
 # Choose train/test dataset source folders:
-train_pose_folder = project_folder+'Videos'
-train_video_folder = project_folder+'Videos'
-train_target_folder = project_folder+'Targets'
+train_pose_folder = project_folder+r'\Videos'
+train_video_folder = project_folder+r'\Videos'
+train_target_folder = project_folder+r'\Targets'
 
 test_video_folder = train_video_folder
 test_pose_folder = train_video_folder
 test_target_folder = train_target_folder
+test_set = [9, 11, 13, 20] # files to leave out as test set from the video folder.
+
 
 # Choose video output folder:
-video_output_folder = project_folder+'Videos\Output'
-thresh_tuned=None
-
-# Which classifiers do you want to train (names should match header is target files)
-
-Behavior_type = ['Flinching']; min_bout, min_after_bout, max_gap = 4,1,2; thresh_tuned=0.5
-# Behavior_type = ['LickingBiting']; min_bout, min_after_bout, max_gap = 5,1,2; thresh_tuned=0.5
-
+video_output_folder = project_folder+r'\VideosScored/'
 
 # Parameters
 bp_include_list = None # To use only a chosen set of body parts pose features(None=All)
@@ -76,13 +86,9 @@ bp_pixbrt_list = ['hrpaw', 'hlpaw', 'snout'] # The body parts that are to be inc
 pix_threshold = 0.3 # Threshold of birghtness: <1 is by precentage (e.g 0.3 for 30%); >1 for 1-to256 pixel intensity
 square_size = [40, 40, 40] # square sizes for Brightness analysis
 
-test_set = [9, 11, 13, 20] # files to leave out as test set
-
-
 
 Behavior_join= ''.join(Behavior_type[:]) # Single string in case of multi behvaiors
 classifier_name = 'ARBEL_' + Behavior_join
-
 
 # Display setting
 Beh_color = 'darkred'
@@ -106,15 +112,14 @@ X_prob = pd.DataFrame()
 
 for i_count,i_file in enumerate(train_set):  # len(train_file_list)): worked well with - train:(0,7) test:(8,10)
     print(f"Train file {i_count + 1} / {len(train_set)}")
-    target_file=glob.glob(f"{train_target_folder}/{train_file_list[i_file][0:train_file_list[i_file].find('body') + 4] + '*.csv'}")[0]
+    target_file=glob.glob(f"{train_target_folder}/{train_file_list[i_file].split('DLC')[0]+ '.csv'}")[0]
     train_pose_file = train_pose_folder + '/' + train_file_list[i_file]
     vid_file = os.path.basename(train_pose_file).split("DLC", 1)[0] + '.avi'
-    PoseFeatures = PoseFeatureExtract(train_pose_file, bp_include_list=bp_include_list)
-    PixBrightFeatures = PixBrightFeatureExtract(pose_data_file=train_pose_file,
-                                                video_file_path=train_video_folder + '/' + vid_file,
-                                                bp_list=bp_pixbrt_list, square_size=square_size,
-                                                pix_threshold=pix_threshold)
-    temp_X = pd.concat([PoseFeatures, PixBrightFeatures], axis=1)
+    temp_X =ARBEL_ExtractFeatures(pose_data_file=train_pose_file,
+                          video_file_path=train_video_folder + '/' + vid_file,
+                          bp_pixbrt_list=bp_pixbrt_list,
+                          square_size=square_size,
+                          pix_threshold=pix_threshold)
     X_headers = temp_X.columns
     # Drop NaN rows from feature extraction
     rows_with_nan = temp_X[temp_X.isna().any(axis=1)].index
@@ -122,11 +127,10 @@ for i_count,i_file in enumerate(train_set):  # len(train_file_list)): worked wel
     temp_y = pd.read_csv(target_file)
     temp_y = temp_y.drop(index=rows_with_nan)
 
-    X = pd.concat([X, temp_X]) # bring the column headers back
+    X = pd.concat([X, temp_X])
     y = pd.concat([y, pd.DataFrame(temp_y.astype(int))])
     print(train_pose_file)
     print('Done')
-
 X = X.reset_index(drop=True)  # drop=True for dropping the 'index' column created with reset_index
 X_copy = X
 y_copy = y
@@ -162,7 +166,7 @@ tic()
 clf_model.fit(X, y)
 toc()
 
-# 1.3 Find initial threshold
+# 1.3 Set threshold
 if 'thresh_tuned' in globals():
     best_thresh=thresh_tuned
     print (f'Threshold was tuned to : {thresh_tuned}')
@@ -171,7 +175,8 @@ else:
     print("Finding prediction threshold with cross-validation. ")
     best_thresh = np.mean(AniML_FindThresh(X, y, clf_model, k=5, min_thr=0.3, max_thr=0.7,coarse_increment=0.02,
                                            fine_increment=0.025, search_radius=0.025, n_jobs=42))
-    print(f'Discrimination threshold set to:{best_thresh}.\nTo change, manually set best_thresh value (e.g. best_thresh=0.5)')
+    print(f'Discrimination threshold set to:{best_thresh}.'
+          f'\nTo change, manually set best_thresh value (e.g. best_thresh=0.5)')
 
 
 ########################################################################################################################
@@ -184,24 +189,20 @@ y_test_starts=[0]
 for i_count, i_file in enumerate(test_set):
     print(f"Test file {i_count + 1} / {len(test_set)}")
     test_pose_file = test_pose_folder + '/' + test_file_list[i_file]
-    vid_file = os.path.basename(test_pose_file).split("bodyDLC", 1)[0] + 'body.avi'
+    vid_file = os.path.basename(test_pose_file).split("DLC", 1)[0] + '.avi'
     print(test_pose_file)
-    PoseFeatures = PoseFeatureExtract(test_pose_file, Flip=False, bp_include_list=bp_include_list)
-
-    PixBrightFeatures = PixBrightFeatureExtract(pose_data_file=test_pose_file,
-                                                video_file_path=test_video_folder + '/' + vid_file,
-                                                bp_list=bp_pixbrt_list, square_size=square_size,
-                                                pix_threshold=pix_threshold, create_video=False, min_prob=0.8)
-
-    temp_X = pd.concat([PoseFeatures, PixBrightFeatures], axis=1)
+    temp_X =ARBEL_ExtractFeatures(pose_data_file=test_pose_file,
+                          video_file_path = test_video_folder + '/' + vid_file,
+                          bp_pixbrt_list=bp_pixbrt_list,
+                          square_size=square_size,
+                          pix_threshold=pix_threshold)
     traget_file=glob.glob(f"{test_target_folder}/{train_file_list[i_file][0:train_file_list[i_file].find('body') + 4] + '*.csv'}")[0]
     temp_y = pd.read_csv(traget_file)
     y_test_starts.append(len(temp_X) + y_test_starts[-1]) #Keep record of beginnings of each test video
 
-    X_test = pd.concat([X_test, temp_X])  # bring the column headers back, they are stripped off when scaling.
+    X_test = pd.concat([X_test, temp_X])
     y_test = pd.concat([y_test, pd.DataFrame(temp_y)])
     y_test = y_test.astype(int)
-
 y_test_starts=[0] + y_test_starts[1:-1]
 y_test_ends = y_test_starts[1:] + [len(X_test)]
 X_test = X_test.reset_index(drop=True)  # drop=True for dropping the 'index' column created with reset_index
@@ -213,38 +214,38 @@ y_test = y_test_copy.reset_index(drop=True)
 y_test = np.array(y_test[Behavior_type].sum(axis=1) > 0).ravel()
 
 #%% 2.2 plot F1-precision-recall vs. threshold for Test
-y_test_all, y_padded_all = pd.DataFrame(), pd.DataFrame()
-y_test_grouped_all, y_padded_grouped_all = pd.DataFrame(), pd.DataFrame()
+y_test_all, y_filt_all = pd.DataFrame(), pd.DataFrame()
 f1_scores_all, precision_scores_all, recall_scores_all = pd.DataFrame(), pd.DataFrame(), pd.DataFrame()
-thresholds = np.concatenate([np.arange(0.00, 0.25, 0.05),
-                                 np.arange(0.35, 0.65, 0.025),
-                                 np.arange(0.65, 1.03, 0.05),
+thresholds = np.concatenate([
+                                 np.arange(0.00, 0.35, 0.05),
+                                 np.arange(0.35, 0.725, 0.025),
+                                 np.arange(0.7, 1.03, 0.05),
                                  [best_thresh]])
 f1_scores = np.zeros(shape=np.shape(thresholds))
 precision_scores = np.zeros(shape=np.shape(thresholds))
 recall_scores = np.zeros(shape=np.shape(thresholds))
 
 for i, th in enumerate(thresholds):
-    y_padded_segments = []
+    y_filt_segments = []
     # Process thresholds for this segment
     for start, end in zip(y_test_starts, y_test_ends):
         X_test_segment = X_test.iloc[start:end]
         # Predict probabilities and apply threshold for the current segment
         y_pred_thr = clf_model.predict_proba(X_test_segment[clf_model.feature_names_in_])[:, 1] >= th
         # Filter (polish and bridge)
-        y_padded_temp = ARBEL_Filter(y_pred_thr, polish_repeat=2, min_bout=min_bout, min_after_bout=min_after_bout, max_gap=max_gap, min_after_gap=1)
+        y_filt_temp = ARBEL_Filter(y_pred_thr, polish_repeat=2, min_bout=min_bout, min_after_bout=min_after_bout, max_gap=max_gap, min_after_gap=1)
         # Append the processed segment predictions to the list
-        y_padded_segments.append(y_padded_temp)
-    y_padded_th = np.concatenate(y_padded_segments).ravel()
-    f1_scores[i], precision_scores[i], recall_scores[i] = round(f1_score(y_test, y_padded_th), 10), round(precision_score(y_test, y_padded_th), 5), round(recall_score(y_test, y_padded_th), 5)
-    y_padded=y_padded_th #the last one was best threshold
-y_padded_copy=y_padded
+        y_filt_segments.append(y_filt_temp)
+    y_filt_th = np.concatenate(y_filt_segments).ravel()
+    f1_scores[i], precision_scores[i], recall_scores[i] = round(f1_score(y_test, y_filt_th), 10), round(precision_score(y_test, y_filt_th), 5), round(recall_score(y_test, y_filt_th), 5)
+    y_filt=y_filt_th #the last one was best threshold
+y_filt_copy=y_filt
 f1_scores_all=pd.concat([f1_scores_all, pd.Series(f1_scores)],axis=1)
 recall_scores_all = pd.concat([recall_scores_all, pd.Series(recall_scores)],axis=1)
 precision_scores_all = pd.concat([precision_scores_all, pd.Series(precision_scores)],axis=1)
 
 print('Validation summary-----------------------------------------------------------------------')
-print(f"{Behavior_type[:len(Behavior_type)]} |F1: {round(f1_score(y_test, y_padded), 3)} |Recall: {round(recall_score(y_test, y_padded), 3)} |Precision: {round(precision_score(y_test, y_padded), 3)}")
+print(f"{Behavior_type[:len(Behavior_type)]} |F1: {round(f1_score(y_test, y_filt), 3)} |Recall: {round(recall_score(y_test, y_filt), 3)} |Precision: {round(precision_score(y_test, y_filt), 3)}")
 print(f'min_bout: {min_bout} | min_after_bout: {min_after_bout} | max_gap:{max_gap} | Threshold: {best_thresh} ')
 
 plt.figure(figsize=(2, 2.7))
@@ -304,11 +305,10 @@ save_model=True
 if save_model:
     # %% Save clf_model to file
     import pickle
-    os.makedirs(classifier_library_path, exist_ok=True)
     model_data = {
         'clf_model': clf_model,
         'best_thresh': best_thresh,
-        'Behavior_join': Behavior_type,
+        'Behavior_type': Behavior_type,
         'min_bout': min_bout,
         'min_after_bout': min_after_bout,
         'max_gap': max_gap,
@@ -359,14 +359,13 @@ if save_model:
     )
     plt.xticks(rotation = 0, ha='right')
     for i, (category, value) in enumerate(zip(shap_values_topN.feature_names[::-1], np.mean(np.abs(shap_values_topN.values), axis=0)[::-1])): # Plot horizontal lines with varying shades of blue
-        if category in PixBrightFeatures.columns:
+        if category in [col for col in X.columns if 'Pix' in col]:
             # plt.hlines(category, xmin=0, xmax=value, color=Beh_cmap(np.linspace(0.2, 0.8, N_display))[i], linewidth=6)
             plt.hlines(category, xmin=0, xmax=value, color=plt.cm.Greys(np.linspace(0.5, 1, N_display))[i], linewidth=6)
             plt.plot(-0.0015, category, '<', color='lightcoral', markersize=5)
-        if category in PoseFeatures.columns:
+        if category in [col for col in X.columns if 'Pix' not in col]:
             # plt.hlines(category, xmin=0, xmax=value, color=Beh_cmap(np.linspace(0.2, 0.8, N_display))[i], linewidth=6)
             plt.hlines(category, xmin=0, xmax=value, color=plt.cm.Greys(np.linspace(0.2, 0.8, N_display))[i], linewidth=6)
-    publish_figure()
     plt.gca().tick_params(labelsize=10, size=3)
     plt.xticks(rotation=0, ha='center')  # Center the x-axis labels
     plt.xlabel('Importance (mean(|SHAP value|))')
@@ -374,4 +373,39 @@ if save_model:
     plt.tick_params(axis='y', labelleft=False)
     plt.legend([Behavior_join])
     plt.tight_layout()
+
     plt.savefig(classifier_library_path  + classifier_name+'_SHAP_Importance' + '.png', format='png', dpi=300, transparent=False)
+
+# %% Creat video
+    file_to_test = 0
+    test_pose_file = train_file_list[test_set[file_to_test]]
+    VideoName = test_pose_file.split('DLC')[0]
+    print("Writing video...")
+    LabelVideo(VideoName=VideoName,
+               Folder=test_video_folder,
+               OutputFolder=video_output_folder,
+               BehaviorLabels=y_test_copy[y_test_starts[file_to_test]:y_test_ends[file_to_test]],#[file_to_test*4500:(file_to_test+1)*4500],#y_padded[75000:],#,
+               InputFileType='.avi',
+               OutputFileType='.avi',
+               FrameCount=True,
+               Resolution_factor=0.33,
+               fromFrame=0,
+               toFrame=1000,
+               inIncrement=1,
+               pix_threshold= pix_threshold*256,
+               only_pix_threshold=False,
+               colormap='coolwarm',
+               LabelType='Text',#'Number'
+               plot=False
+               )
+
+# %% Save training and test data to pickle
+if 0:
+    import pickle
+
+    with open(f'{project_folder}/train_test_set.pkl', 'wb') as f:
+        train_test_data = {
+            'X': X_copy, 'y': y_copy, 'X_test': X_test_copy, 'y_test': y_test_copy, 'test_file_list': test_file_list,
+            'train_file_list': train_file_list
+        }
+        pickle.dump(train_test_data, f)
