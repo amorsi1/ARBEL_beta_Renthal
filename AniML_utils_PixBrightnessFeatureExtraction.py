@@ -6,10 +6,10 @@ from AniML_utils_GeneralFunctions import *
 import time
 import gc
 
-def depth_pixels(pose_data_file, video_file_path, bp_list, square_size, pix_threshold=[], scale_x=1, scale_y=1, create_video=False, min_prob = 0.8):
+def depth_pixels(pose_data_file, video_file_path, bp_pixbrt_list, square_size, pix_threshold=[], scale_x=1, scale_y=1, create_video=False, min_prob = 0.8):
     # if only one value was given as size
     if np.size(square_size)==1:
-        size=np.ones(np.size(bp_list))*square_size
+        size=np.ones(np.size(bp_pixbrt_list))*square_size
     startTime_for_tictoc = time.time()
     label = open_file_as_dataframe(pose_data_file)
     the_video = cv2.VideoCapture(video_file_path)
@@ -53,8 +53,8 @@ def depth_pixels(pose_data_file, video_file_path, bp_list, square_size, pix_thre
         frame[frame < pix_threshold] = 1 # Black out below threshold (dont use 0 because 0/0 is nan)
 
         bp_data = {}
-        for i, bp1 in enumerate(bp_list):
-            for j, bp2 in enumerate(bp_list):
+        for i, bp1 in enumerate(bp_pixbrt_list):
+            for j, bp2 in enumerate(bp_pixbrt_list):
                 if j > i:
                     # Get body part coordinates and probabilities
                     x1, y1, prob1 = int(label[bp1 + '_x'].values[i_frame]), int(label[bp1 + '_y'].values[i_frame]), \
@@ -98,8 +98,8 @@ def depth_pixels(pose_data_file, video_file_path, bp_list, square_size, pix_thre
             frame = cv2.cvtColor(frame, cv2.COLOR_GRAY2BGR)
             thickness = 1  # Thickness of the square border
             color = (0, 255, 0)  # Green color in BGR format
-            for i, bp1 in enumerate(bp_list):
-                for j, bp2 in enumerate(bp_list):
+            for i, bp1 in enumerate(bp_pixbrt_list):
+                for j, bp2 in enumerate(bp_pixbrt_list):
                     x, y = (int(label[bp1 + '_x'].values[i_frame]), int(label[bp1 + '_y'].values[i_frame]))
                     if label[bp1 + '_prob'].values[i_frame] > min_prob:
                         cv2.rectangle(frame, (x-square_size[i]//2, y-square_size[i]//2), (x+square_size[i]//2, y+square_size[i]//2), color, thickness)
@@ -119,9 +119,9 @@ def depth_pixels(pose_data_file, video_file_path, bp_list, square_size, pix_thre
     return BPratios_all
 
 
-def PixBrightFeatureExtract(pose_data_file, video_file_path, bp_list, square_size, pix_threshold, dt_vel=2, scale_x=1, scale_y=1, create_video=False, min_prob=0.80):
+def PixBrightFeatureExtract(pose_data_file, video_file_path, bp_pixbrt_list, square_size, pix_threshold, dt_vel=2, scale_x=1, scale_y=1, create_video=False, min_prob=0.80):
 
-    bppixels_ratio = depth_pixels(pose_data_file, video_file_path, bp_list, square_size, pix_threshold, scale_x,
+    bppixels_ratio = depth_pixels(pose_data_file, video_file_path, bp_pixbrt_list, square_size, pix_threshold, scale_x,
                                   scale_y, create_video, min_prob)
 
     # Absolute first derivative before
@@ -138,5 +138,5 @@ def PixBrightFeatureExtract(pose_data_file, video_file_path, bp_list, square_siz
     # peak_frequency.columns = [f'{col}_freq' for col in bppixels_ratio.columns]
 
     ## Absolute second derivative before
-    # bppixels_ratio_2diffBefore = bppixels_ratio.diff(periods=dt_before).diff(periods=1).abs()
+    # bppixels_ratio_2diffBefore = bppixels_ratio.diff(periods=dt_vel).diff(periods=1).abs()
     # bppixels_ratio_2diffBefore.columns = [f"|d2/dt2({col})|" for col in bppixels_ratio.columns]

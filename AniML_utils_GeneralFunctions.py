@@ -9,6 +9,7 @@ import pandas as pd
 import numpy as np
 import cv2
 import os
+import matplotlib.pyplot as plt
 from datetime import datetime
 
 def open_file_as_dataframe(file_path):
@@ -168,3 +169,13 @@ def toc():
         print ("Elapsed time is " + str(round(time.time() - startTime_for_tictoc,2)) + " seconds.")
     else:
         print ("Toc: start time not set")
+
+def Done(*args):
+    import winsound
+    for i in range(0,3):
+        frequency = 3700  # Set Frequency To 2500 Hertz
+        duration = 50  # Set Duration To 1000 ms == 1 second
+        winsound.Beep(frequency, duration)
+        frequency = 1000  # Set Frequency To 2500 Hertz
+        duration = 50  # Set Duration To 1000 ms == 1 second
+        winsound.Beep(frequency, duration)

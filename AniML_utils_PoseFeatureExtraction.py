@@ -106,65 +106,6 @@ def bp_distances(bp_xcord, bp_ycord):
     return BP_distances
 
 
-
-"""def angleOLD(bp_xcord, bp_ycord): #not all angles
-    # Take the x, y position of each body part (BP) and check the distance between it and the other BPs
-    BP_angles = pd.DataFrame()
-    bp_columns = bp_xcord.columns
-
-    for i in range(len(bp_columns)):
-        for j in range(i + 1, len(bp_columns)):
-            for k in range(j + 1, len(bp_columns)):
-                bp1name = bp_columns[i].replace("_x", "")  # e.g. get rid of the "_x" in "Nose_x"
-                bp2name = bp_columns[j].replace("_x", "")
-                bp3name = bp_columns[k].replace("_x", "")
-                AC = (bp_xcord.iloc[:, i] - bp_xcord.iloc[:, k])**2 + (bp_ycord.iloc[:, i] - bp_ycord.iloc[:, k])**2
-                BC = (bp_xcord.iloc[:, j] - bp_xcord.iloc[:, k])**2 + (bp_ycord.iloc[:, j] - bp_ycord.iloc[:, k])**2
-                AB = (bp_xcord.iloc[:, i] - bp_xcord.iloc[:, j])**2 + (bp_ycord.iloc[:, i] - bp_ycord.iloc[:, j])**2
-                AC = np.sqrt(AC) #distance of bp1-bp3
-                BC = np.sqrt(BC) #distance of bp2-bp3
-                AB = np.sqrt(AB) #distance of bp1-bp2
-                # The angle that is created AT bp3
-                AngleC = np.arccos((BC**2 + AC**2 - AB**2) / (2 * AC * BC))  # Law of cosines
-                AngleC = np.rad2deg(AngleC)
-                angle_column = f'deg_{bp1name}_{bp2name}_{bp3name}'
-                BP_angles[angle_column] = AngleC
-    return BP_angles"""
-
-"""def angle(bp_xcord, bp_ycord):
-    # Take the x, y position of each body part (BP) and check the distance between it and the other BPs
-    BP_angles = pd.DataFrame()
-    bp_columns = bp_xcord.columns
-    import itertools
-    sequence = range(len(bp_columns))
-    permutations = list(itertools.permutations(sequence, 3))
-    unique_permutations = []
-    for perm in permutations:
-        reverse_perm = perm[::-1]  # Reverse the permutation
-        if perm not in unique_permutations and reverse_perm not in unique_permutations:
-            unique_permutations.append(perm)
-
-    for i_p in range(len(unique_permutations)):
-        i,j,k=unique_permutations[i_p][0],unique_permutations[i_p][1],unique_permutations[i_p][2]
-        bp1name = bp_columns[i].replace("_x", "")  # e.g. get rid of the "_x" in "snout_x"
-        bp2name = bp_columns[j].replace("_x", "")
-        bp3name = bp_columns[k].replace("_x", "")
-        AC = (bp_xcord.iloc[:, i] - bp_xcord.iloc[:, k])**2 + (bp_ycord.iloc[:, i] - bp_ycord.iloc[:, k])**2
-        BC = (bp_xcord.iloc[:, j] - bp_xcord.iloc[:, k])**2 + (bp_ycord.iloc[:, j] - bp_ycord.iloc[:, k])**2
-        AB = (bp_xcord.iloc[:, i] - bp_xcord.iloc[:, j])**2 + (bp_ycord.iloc[:, i] - bp_ycord.iloc[:, j])**2
-        AC = np.sqrt(AC)
-        BC = np.sqrt(BC)
-        AB = np.sqrt(AB)
-        AngleC = np.arccos((BC**2 + AC**2 - AB**2) / (2 * AC * BC))  # Law of cosines
-        AngleC = np.rad2deg(AngleC)
-        angle_column = f'deg_{bp1name}_{bp2name}_{bp3name}'
-        BP_angles = pd.concat([BP_angles, pd.DataFrame(AngleC, columns=[angle_column])], axis=1)
-    return BP_angles"""
-
-
-# this one is CORRECTED AGING, with the angl permuatiotion not repeating themselves (fixed during ALS project, August 2024):
-# however scoring results are a bit decreased, so left the other one for referrence
-
 def angle(bp_xcord, bp_ycord):
     # Take the x, y position of each body part (BP) and check the angles between it and the other BPs
     BP_angles = pd.DataFrame()
@@ -253,7 +194,7 @@ def PoseFeatureExtract(data_file, dt_vel=2, x_scale=1, y_scale=1, Flip=False, Fi
                    angle(bp_xcord, bp_ycord),
 
                    bp_inFrame(data_file,BPprob_thresh)
-                   # distances_velocity(bp_distances(bp_xcord, bp_ycord),dt_before),
+                   # distances_velocity(bp_distances(bp_xcord, bp_ycord),dt_vel),
                    # MinMovement,MaxMovement, MeanMovement, SumMovement,
                    ],
                    axis=1)
@@ -432,11 +373,11 @@ def AniML_FindThresh(X, y, model, k=5, min_thr=0, max_thr=1, coarse_increment=0.
 
 #Unused features
     # BPprobs=getBPprob(data_file)
-    # MeanMovement = pd.DataFrame(bp_velocity(bp_xcord, bp_ycord, dt_before).mean(axis=1))
+    # MeanMovement = pd.DataFrame(bp_velocity(bp_xcord, bp_ycord, dt_vel).mean(axis=1))
     # MeanMovement.columns = ['MeanMovement']
-    # SumMovement = pd.DataFrame(bp_velocity(bp_xcord, bp_ycord, dt_before).sum(axis=1))
+    # SumMovement = pd.DataFrame(bp_velocity(bp_xcord, bp_ycord, dt_vel).sum(axis=1))
     # SumMovement.columns = ['SumMovement']
-    # MinMovement= pd.DataFrame(bp_velocity(bp_xcord, bp_ycord, dt_before).min(axis=1))
+    # MinMovement= pd.DataFrame(bp_velocity(bp_xcord, bp_ycord, dt_vel).min(axis=1))
     # MinMovement.columns = ['MinMovement']
-    # MaxMovement= pd.DataFrame(bp_velocity(bp_xcord, bp_ycord, dt_before).max(axis=1))
+    # MaxMovement= pd.DataFrame(bp_velocity(bp_xcord, bp_ycord, dt_vel).max(axis=1))
     # MaxMovement.columns = ['MaxMovement']
