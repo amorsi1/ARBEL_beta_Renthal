@@ -3,8 +3,7 @@ ARBEL Automatic Behavior Scoring Script
 
 This script is designed for automatic behavior scoring using the ARBEL framework.
 It integrates pose estimation, pixel brightness feature extraction, and behavior
-classification through machine learning models. The primary purpose of this
-pipeline is to automate behavior analysis from video data efficiently.
+classification through machine learning models.
 
 Components Used:
 - `MatlabLikeFunctions`: Provides utility functions similar to MATLAB for data processing.
@@ -17,15 +16,15 @@ User-Defined Parameters:
 - `Project`: Path to the main folder containing experimental data.
 - `Experiments`: List of experimental folders to process. An experiment folder should contain all videos.
 - `Behavior_classifiers`: List of pre-trained classifier files for behavior prediction.
-- Feature extraction parameters such as `dt_before`, `pix_threshold`, `bp_list`, and `square_size`.
+- Feature extraction parameters such as `pix_threshold`, `bp_pixbrt_list`, and `square_size`.
 - Video creation options such as resolution, FPS, and input/output formats.
 
 Workflow:
 1. Loop through experimental folders and identify videos for analysis.
 2. Extract pose and pixel brightness features from video data.
 3. Apply classifiers to predict behaviors and save results.
-4. Optionally, generate labeled videos for the detected behaviors.
-5. Compile and save summary statistics for each experiment.
+4. Compile and save summary statistics for each experiment.
+5. (Optional) generate labeled videos for the detected behaviors.
 
 Note:
 - Ensure the required classifier files are available in the specified `ClassifierLibraryFolder`.
@@ -40,38 +39,39 @@ from ARBEL_Predict import *
 from AniML_utils_PoseFeatureExtraction import *
 from AniML_utils_PixBrightnessFeatureExtraction import *
 import glob
-
+tic()
 #%% USER DEFINED FIELDS
 #######################
 
 create_videos=1 # Slower; Adjust resolution (0-to-1) for faster results.
+runDLC=0 # If videos were not DeepLabCutted then true
+
 fps = 25
 PoseDataFileType='h5'
 #Crop video scoring (from frame to frame)
 From,To=(0, None)
-# Run DeepLabCut
-runDLC=False
-dlc_config_path =r'/config.yaml' #insert DLC config path 
 
 ''' 1. Define behavior video folder '''
-# Example: Project > Experiments (timepoint/doses/pharmacology) > Subject Trial files (*.H5, *.avi)
-Project = r'Example'
+# Form: Experiment  -> Experiments (mouse) -> i_Trial(Before, drug, after, timepoints, etc.)
+# Example: Project (DARPA) > Experiment (Capsaicin 0.1%, morphine, Date) > Subject Trial files (*.H5, *.avi)
+Project = r'H:\Shared drives\WoolfLab\Sunze\behavior_screen/'
 Rig='BlackBox'
-Experiments =['1wk','4wk','7wk']
+Experiments =['SuNT'] #'4wk','6wk','7wk','8wk','9wk','10wk','11wk','12wk','13wk','14wk','15wk','16wk','17wk']
 
-dt_vel=2
 pix_threshold=0.3
-bp_list=['hrpaw', 'hlpaw','snout']
+bp_pixbrt_list=['hrpaw', 'hlpaw','snout']
 square_size=[40,40,40]
 
 
 '''2. Define classifiers'''
 ClassifierLibraryFolder = rf'C:\Users\ch226295\PycharmProjects\AniML\ARBEL_Classifiers\{Rig}/'
 Behavior_classifiers = [
-                       # 'ARBEL_Flinching.pkl',
-                       # 'ARBEL_LickingBiting.pkl',
-                       # 'ARBEL_Grooming.pkl',
+                       'ARBEL_Flinching.pkl',
+                       'ARBEL_LickingBiting.pkl',
+                       'ARBEL_Grooming.pkl',
                        'ARBEL_Rearing.pkl',
+                       'ARBEL_Scratching.pkl',
+                       'ARBEL_Flicking.pkl',
                     ]
 
 #%% RUN! Automatic Recognition of Behavior Enhance with Light
@@ -81,18 +81,17 @@ timestamp=datetime.now().strftime("%H%M")
 for Experiment in Experiments:
     closeall()
     Experiment_path = Project + f'{Experiment}/'
-    OutputFolder = 'ML_Output'
+    OutputFolder = 'ARBEL_output'
     os.makedirs(Experiment_path + OutputFolder, exist_ok=True)
 
     #DLC pose estimation labeling - DLC doesnt re-analyze if it recognized DLC files in the folder
-    videos_folder = Experiment_path
+    videos_folder = Experiment_path + f'/Videos/'
     if runDLC:
         print(f'DeepLabCut will run only on files that were not analyzed by DLC....')
         # Insert DeepLabCut config file to 'config_path'
         import deeplabcut
-        dlc_config_path=r'\config.yaml' 
-        deeplabcut.analyze_videos(config_path=dlc_config_path,videos_folder, save_as_csv=False, gputouse=0)
-
+        dlc_config_path=r'\config.yaml'
+        deeplabcut.analyze_videos(dlc_config_path,videos_folder, save_as_csv=False, gputouse=0)
 
     # Experiment in Folders
     pose_file_list = glob.glob(videos_folder + '/*.' + PoseDataFileType)
@@ -110,20 +109,21 @@ for Experiment in Experiments:
         if pose_data_file.find('DLC') > -1:
             DataID = DataID[:pose_data_file.find('DLC')]
         data_path = videos_folder + pose_data_file
-        print("Change the order of ['hrpaw', 'hlpaw','snout'] to  ['hlpaw', 'hrpaw','snout'] if there is a warning about it.")
-        X = ARBEL_ExtractFeatures(data_path, video_file_path=videos_folder + '/' + vid_file, bp_list=bp_list,
-                                  dt_vel=dt_vel, square_size=square_size, pix_threshold=pix_threshold, create_video=False,
-                                  Flip=False, n_jobs=32, bp_include_list=None, save_feature_mat=0)
+        X = ARBEL_ExtractFeatures(pose_data_file=data_path,
+                                  video_file_path=videos_folder + '/' + vid_file,
+                                  bp_pixbrt_list=bp_pixbrt_list,
+                                  square_size=square_size,
+                                  pix_threshold=pix_threshold)
         subject_summary = pd.DataFrame()
 
         '''Run the data with all the selected classifiers'''
+        subject_y_pred_filts=pd.DataFrame()
         for Behavior_classifier in Behavior_classifiers:
             clf_model_path = ClassifierLibraryFolder + Behavior_classifier
 
             with open(clf_model_path, 'rb') as f:
                 loaded_model = pickle.load(f)
             Behavior_type = loaded_model['Behavior_type']
-
             Behavior_join= ''.join(Behavior_type[:])
 
             y_pred_filt, y_pred = ARBEL_Predict(clf_model_path, X)
@@ -135,33 +135,31 @@ for Experiment in Experiments:
             os.makedirs(Experiment_path + OutputFolder + f'/{DataID}_Behavior', exist_ok=True)
             y_pred_filt.columns=[''.join(Behavior_join)]
             y_pred_filt.to_csv(Experiment_path + OutputFolder + f'/{DataID}_Behavior/' + DataID + '_' + ''.join(Behavior_join) + '_ML.csv', index=False)
-
+            subject_y_pred_filts = pd.concat([subject_y_pred_filts,y_pred_filt],axis=1)
             ##### 2.2 Save summary file
-            total_behavior_time = round(np.sum(np.array(y_pred_filt))/fps,2)
-            mean_bout_duration = float(np.mean(np.transpose(find_consecutive_repeats(y_pred_filt)[np.where(find_consecutive_repeats(y_pred_filt)[:, 0] == True), 1])/fps))
-            new_col=pd.DataFrame([[total_behavior_time,mean_bout_duration]],
-                                 columns=[f'{Behavior_join} time (s)', f'{Behavior_join} bout mean (s)'])
-            subject_summary =pd.concat([subject_summary ,new_col],axis=1)
+            total_behavior_time = pd.DataFrame([round(np.sum(np.array(y_pred_filt))/fps,2)], columns=[f'{Behavior_join} time (s)'])
+            # mean_bout_duration = float(np.mean(np.transpose(find_consecutive_repeats(y_pred_filt)[np.where(find_consecutive_repeats(y_pred_filt)[:, 0] == True), 1])/fps))
+            # new_col=pd.DataFrame([[total_behavior_time,mean_bout_duration]],
+            #                      columns=[f'{Behavior_join} time (s)', f'{Behavior_join} bout mean (s)'])
+            subject_summary =pd.concat([subject_summary, total_behavior_time],axis=1)
 
-            ##### Create video (optional if 'create_videos==1')
-            if create_videos==1:
-                    print("Writing video(s)...")
-                    os.makedirs(Experiment_path + OutputFolder + f'/{DataID}_Behavior/' + OutputFolder, exist_ok=True)
-                    LabelVideo(VideoName=DataID, Folder=videos_folder,
-                               OutputFolder=Experiment_path + OutputFolder + f'/{DataID}_Behavior/',
-                               BehaviorLabels = y_pred_filt,
-                               BehaviorLabels1 = [],
-                               InputFileType = '.avi',
-                               Behavior_name = ''.join(Behavior_join[:]),
-                               OutputFileType = '.mp4',
-                               FrameCount = True,
-                               Resolution_factor = 0.33, fromFrame = 0,  #toFrame=,
-                               pix_threshold = 125, only_pix_threshold = False, colormap = 'coolwarm')
+        ##### Create video (optional if 'create_videos==1')
+        if create_videos==1:
+                print("Writing video...")
+                LabelVideo(VideoName=DataID,
+                           Folder=videos_folder,
+                           OutputFolder=Experiment_path + OutputFolder + f'/{DataID}_Behavior/',
+                           BehaviorLabels=subject_y_pred_filts,
+                           InputFileType='.avi',
+                           OutputFileType='.mp4',
+                           FrameCount=True,
+                           Resolution_factor=0.33,
+                           pix_threshold=pix_threshold * 256,
+                           )
         data_summary = pd.concat([data_summary, subject_summary], axis=0)
     data_summary = pd.concat([data_subjects, data_summary.reset_index(drop=True)], axis=1)
     data_summary.to_csv(Experiment_path + OutputFolder + '/Behavior_summary_' + Experiment + '_' + timestamp + '.csv')
 print('Done.')
-
+toc()
 Done() #Play sounds when done.
-
 
