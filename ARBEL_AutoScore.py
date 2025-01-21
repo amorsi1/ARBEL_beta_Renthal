@@ -54,9 +54,9 @@ From,To=(0, None)
 ''' 1. Define behavior video folder '''
 # Form: Experiment  -> Experiments (mouse) -> i_Trial(Before, drug, after, timepoints, etc.)
 # Example: Project (DARPA) > Experiment (Capsaicin 0.1%, morphine, Date) > Subject Trial files (*.H5, *.avi)
-Project = r'H:\Shared drives\WoolfLab\Sunze\behavior_screen/'
-Rig='BlackBox'
-Experiments =['SuNT'] #'4wk','6wk','7wk','8wk','9wk','10wk','11wk','12wk','13wk','14wk','15wk','16wk','17wk']
+Project = r'' #Insert Project folder path
+Rig='DarkBottomUp' #Insert classifier rig
+Experiments =[''] #Inser experiment folder name
 
 pix_threshold=0.3
 bp_pixbrt_list=['hrpaw', 'hlpaw','snout']
@@ -64,14 +64,11 @@ square_size=[40,40,40]
 
 
 '''2. Define classifiers'''
-ClassifierLibraryFolder = rf'C:\Users\ch226295\PycharmProjects\AniML\ARBEL_Classifiers\{Rig}/'
+ClassifierLibraryFolder = rf'\ARBEL_Classifiers\DarkBottomUp/'
 Behavior_classifiers = [
                        'ARBEL_Flinching.pkl',
                        'ARBEL_LickingBiting.pkl',
                        'ARBEL_Grooming.pkl',
-                       'ARBEL_Rearing.pkl',
-                       'ARBEL_Scratching.pkl',
-                       'ARBEL_Flicking.pkl',
                     ]
 
 #%% RUN! Automatic Recognition of Behavior Enhance with Light
