@@ -68,7 +68,8 @@ def LabelVideo(VideoName, Folder,
             frame_count += inIncrement
             continue
 
-        if (frame is None and count == 0) or (frame is None and count == toFrame):
+        # First check if frame is valid
+        if not ret:
             break
         count += 1
 
@@ -84,9 +85,6 @@ def LabelVideo(VideoName, Folder,
                 frame[:] = 0
 
             frame[above_threshold_mask] = colormap_values_bgr
-
-        if not ret:
-            break
 
         if FrameCount:
             cv2.putText(frame, f"{frame_count}", (int(8.5 * width / 10), int(9 * height / 10)), font, 0.7,
