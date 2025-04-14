@@ -97,9 +97,3 @@ This project requires the following libraries and tools to run successfully:
 - **Operating System**: Linux or Windows recommended (with compatible Python environment).
 - **Video Backend**: Ensure OpenCV is installed and configured properly for video handling.
 - GPU recommended. 
-
-### **License**
-This software package provided without warranty of any kind and is licensed under the GNU General Public License v3.0. 
-
-
-Be sure to follow publication updates. Please cite us.
