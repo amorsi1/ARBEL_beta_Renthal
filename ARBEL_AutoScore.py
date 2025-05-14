@@ -16,7 +16,7 @@ User-Defined Parameters:
 - `Project`: Path to the main folder containing experimental data.
 - `Experiments`: List of experimental folders to process. An experiment folder should contain all videos.
 - `Behavior_classifiers`: List of pre-trained classifier files for behavior prediction.
-- Feature extraction parameters such as `pix_threshold`, `bp_pixbrt_list`, and `square_size`.
+- Feature extraction parameters such as `pix_threshold`, `ç`, and `square_size`.
 - Video creation options such as resolution, FPS, and input/output formats.
 
 Workflow:
@@ -35,18 +35,20 @@ Note:
 
 from AniML_utils_GeneralFunctions import *
 from AniML_VideoLabel import *
-from ARBEL_Predict import *
+from ARBEL_utils_Predict import *
 from AniML_utils_PoseFeatureExtraction import *
 from AniML_utils_PixBrightnessFeatureExtraction import *
 import glob
+from tqdm import tqdm
+
 tic()
 #%% USER DEFINED FIELDS
 #######################
 
-create_videos=1 # Slower; Adjust resolution (0-to-1) for faster results.
+create_videos=0.5 # Slower; Adjust resolution (0-to-1) for faster results.
 runDLC=0 # If videos were not DeepLabCutted then true
 
-fps = 25
+fps = 45
 PoseDataFileType='h5'
 #Crop video scoring (from frame to frame)
 From,To=(0, None)
@@ -54,23 +56,41 @@ From,To=(0, None)
 ''' 1. Define behavior video folder '''
 # Form: Experiment  -> Experiments (mouse) -> i_Trial(Before, drug, after, timepoints, etc.)
 # Example: Project (DARPA) > Experiment (Capsaicin 0.1%, morphine, Date) > Subject Trial files (*.H5, *.avi)
-Project = r'' #Insert Project folder path
+Project = r'/mnt/hd0/Pain_ML_data/ARBEL/' #Insert Project folder path
 Rig='DarkBottomUp' #Insert classifier rig
-Experiments =[''] #Inser experiment folder name
+Experiments =['02.24.24_SN'] #Insert experiment folder name
 
 pix_threshold=0.3
-bp_pixbrt_list=['hrpaw', 'hlpaw','snout']
+bp_pixbrt_list=['rhpaw', 'lhpaw','snout'] #Refer to the DLC body part for hind left paw, hind right paw, and snout
+                                          #You may need to change this for your dataset
+trim_pose_data = True # Edits datafile in-place to only include inputs for ARBEL data. Useful if pose data tracks significantly more than 9 bodyparts.
+if trim_pose_data:
+    # Inclued four paws, snout, neck, centroid, tail base and tail end
+    # These names should correspond to what the bodyparts are named in your DLC model
+    bodyparts_to_include = ('lfpaw','rfpaw','lhpaw','rhpaw','snout','neck','sternumtail','tailbase','tailtip')
 square_size=[40,40,40]
 
 
 '''2. Define classifiers'''
-ClassifierLibraryFolder = rf'\ARBEL_Classifiers\DarkBottomUp/'
+ClassifierLibraryFolder = rf'/mnt/md0/dev/ARBEL_beta/ARBEL_Classifiers/DarkBottomUp/'
 Behavior_classifiers = [
                        'ARBEL_Flinching.pkl',
                        'ARBEL_LickingBiting.pkl',
                        'ARBEL_Grooming.pkl',
                     ]
-
+# OPTIONAL
+# Rename columns in input dataframe (X) to match that of classifier features
+rename_X_features = True
+if rename_X_features:
+    #Columns of dataframe X will be replaced according to this map
+    rename_map = {
+        'lhpaw': 'hlpaw',
+        'rhpaw': 'hrpaw',
+        'lfpaw': 'flpaw',
+        'rfpaw': 'frpaw',
+        'sternumtail': 'centroid'
+        #Extend as needed
+    }
 #%% RUN! Automatic Recognition of Behavior Enhance with Light
 #############################################################
 timestamp=datetime.now().strftime("%H%M")
@@ -94,11 +114,11 @@ for Experiment in Experiments:
     pose_file_list = glob.glob(videos_folder + '/*.' + PoseDataFileType)
     pose_file_list = sorted([os.path.basename(file) for file in pose_file_list])  # for list of sessionfiles without folder
     pose_ID = sorted([os.path.basename(file).split('DLC')[0] for file in pose_file_list])
-    data_summary=pd.DataFrame()
+    data_summary= pd.DataFrame()
     data_subjects = pd.DataFrame(pose_ID, columns=[f'{Experiment}_Subject'])
 
     print(f'Experiment: {Experiment} - with {Behavior_classifiers}')
-    for i_file in range(0, len(pose_file_list)):
+    for i_file in tqdm(range(0, len(pose_file_list)), desc="Processing pose files"):
         print(f'Preparing data and extracting features (X) for classification: {pose_file_list[i_file]}')
         pose_data_file = pose_file_list[i_file]
         vid_file = pose_data_file.split('DLC')[0] + '.avi'
@@ -106,12 +126,29 @@ for Experiment in Experiments:
         if pose_data_file.find('DLC') > -1:
             DataID = DataID[:pose_data_file.find('DLC')]
         data_path = videos_folder + pose_data_file
+
+        num_bodypart_columns = len(pd.read_hdf(data_path).columns.get_level_values(1))
+        if num_bodypart_columns > 9:
+            if trim_pose_data:
+                print(f'Trimming pose_data_file...')
+                trim_DLC_bodyparts(data_path, bodyparts_to_include, save_inplace=True)
+            else:
+                raise UserWarning(f'''
+                        DLC file {pose_data_file} contains tracking data for {num_bodypart_columns}, but ARBEL is expecting
+                        9. This may cause longer processing times during feature extraction.
+                         
+                        Set 'trim_pose_data' to True in ARBEL_AutoScore.py to fix this.
+                        ''')
+
         X = ARBEL_ExtractFeatures(pose_data_file=data_path,
                                   video_file_path=videos_folder + '/' + vid_file,
                                   bp_pixbrt_list=bp_pixbrt_list,
                                   square_size=square_size,
                                   pix_threshold=pix_threshold)
         subject_summary = pd.DataFrame()
+        if rename_X_features:
+            # Rename features matrix X to match feature names in XGBoost object
+            X = rename_feature_columns(X, rename_map)
 
         '''Run the data with all the selected classifiers'''
         subject_y_pred_filts=pd.DataFrame()
@@ -122,7 +159,15 @@ for Experiment in Experiments:
                 loaded_model = pickle.load(f)
             Behavior_type = loaded_model['Behavior_type']
             Behavior_join= ''.join(Behavior_type[:])
-
+            if rename_X_features:
+                # Check if renamed features successfully match the loaded model
+                missing_features = set(loaded_model['clf_model'].feature_names_in_) - set(X.columns)
+                if missing_features:
+                    print(f'{len(missing_features)} features in {Behavior_classifier} not found in features matrix. solving...')
+                    missing_cols = set(X.columns) - set(loaded_model['clf_model'].feature_names_in_)
+                    if len(missing_features) == len(missing_cols):
+                        # Discrepancy may be due to naming swap
+                        X = swap_bodypart_names(missing_features, X, 'hrpaw','flpaw')
             y_pred_filt, y_pred = ARBEL_Predict(clf_model_path, X)
 
             y_pred=y_pred.iloc[From:To,:]
@@ -148,9 +193,9 @@ for Experiment in Experiments:
                            OutputFolder=Experiment_path + OutputFolder + f'/{DataID}_Behavior/',
                            BehaviorLabels=subject_y_pred_filts,
                            InputFileType='.avi',
-                           OutputFileType='.mp4',
+                           OutputFileType='.avi',
                            FrameCount=True,
-                           Resolution_factor=0.33,
+                           Resolution_factor=1,
                            pix_threshold=pix_threshold * 256,
                            )
         data_summary = pd.concat([data_summary, subject_summary], axis=0)
