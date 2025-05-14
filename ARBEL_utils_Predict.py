@@ -131,3 +131,100 @@ def ARBEL_Predict(clf_model_path, X, min_bout=3, min_after_bout=1, max_gap=0, be
     y_pred_filt = pd.DataFrame(y_pred_filt.iloc[:,0] + 0)
     y_pred_th = pd.DataFrame(y_pred_th.iloc[:, 0] + 0)
     return y_pred_filt, y_pred_th
+
+
+def rename_feature_columns(X: pd.DataFrame, rename_map=None):
+    """
+    Rename columns in the input DataFrame to match the model's expected feature names.
+    Instead of modifying the model, this function creates a new DataFrame with renamed columns.
+
+    Args:
+        X: Input DataFrame with features
+        rename_map: Optional dictionary of {new_name: old_name}. If None, applies standard replacements
+
+    Returns:
+        DataFrame with renamed columns matching model's expected feature names
+    """
+    if rename_map is None:
+        rename_map = {
+            'lhpaw': 'hlpaw',
+            'rhpaw': 'hrpaw',
+            'lfpaw': 'flpaw',
+            'rfpaw': 'frpaw'
+        }
+
+    # Create a copy of the input DataFrame
+    X_renamed = X.copy()
+
+    # Create reverse mapping dictionary for column names
+    column_mapping = {}
+
+# Apply all replacements
+    print('-- Renaming features --')
+    n=0
+    for col in X_renamed.columns:
+        col_newname = col
+        for old, new in rename_map.items():
+            if old in col_newname:
+                col_newname = col_newname.replace(old, new) # tracking col_newname allows for multiple changes to the same col
+        if col_newname != col:
+            n+= 1
+            # save mapping only if there have been changes
+            column_mapping[col] = col_newname
+
+    # Apply the renaming
+    X_renamed = X_renamed.rename(columns=column_mapping)
+    print(f'renamed {n}/{len(X.columns)} columns')
+
+    return X_renamed
+def swap_bodypart_names(missing_features, X: pd.DataFrame, substring1: str, substring2: str):
+    """
+    This fn is to address a discrepancy in the XGBoost feature names and the feature names in features matrix X.
+
+    The following set of features names are not found matrix X:
+    {'Ang_hrpaw-frpaw-flpaw', 'Ang_hrpaw-snout-flpaw', 'Ang_hrpaw-tailbase-flpaw', 'Ang_hrpaw-neck-flpaw',
+    'Ang_hrpaw-tailtip-flpaw', 'Ang_hrpaw-centroid-flpaw', 'Ang_hrpaw-hlpaw-flpaw', 'Dis_hrpaw-flpaw'}
+
+    Instead, the 'hrpaw' and 'flpaw' substrings are in the reverse order, and swapping them should resolve this discrepancy.
+    This is only a temporary fix.
+
+    Args:
+        missing_features : iterable of all features found in XGBoost object that are not found in matrix X
+        X : Features matrix X
+        substring1 & substring 2: The two substrings that are believed to be reversed in some of the feature names,
+                                    creating this discrepancy
+    """
+    def swap_substrings(full_string, substring1=substring1, substring2=substring2):
+        if not (substring1 in full_string and substring2 in full_string):
+            raise UserWarning(f'substrings "{substring1}" and "{substring2}" not found in {full_string}')
+        temp = full_string.replace(substring1, '<<SS1>>').replace(substring2, '<<SS2>>')
+
+        # Then replace the markers with the swapped values
+        swapped = temp.replace('<<SS1>>', substring2).replace('<<SS2>>', substring1)
+        return swapped
+    rename_map = {}
+    X_columns = X.columns
+    for feature in missing_features:
+        swapped = swap_substrings(feature)
+        if swapped in X_columns:
+            rename_map[swapped] = feature
+        else:
+            print(f'no accompanying column found for missing feature {feature}')
+
+    # Create a copy of the input DataFrame
+    X_renamed = X.copy()
+    # Apply the renaming
+    X_renamed = X_renamed.rename(columns=rename_map)
+    return X_renamed
+
+def trim_DLC_bodyparts(dlc_file: os.PathLike,
+                       target_bodyparts=('lfpaw','rfpaw','lhpaw','rhpaw','snout','neck','sternumtail','tailbase','tailtip'),
+                       save_inplace=False):
+    h5_df = pd.read_hdf(dlc_file)
+    # Create mask of columns and return filtered df
+    mask = h5_df.columns.get_level_values(1).isin(target_bodyparts)
+    filtered_df = h5_df.loc[:, mask]
+    if save_inplace:
+        filtered_df.to_hdf(dlc_file, key='df_with_missing')
+    else:
+        return filtered_df
