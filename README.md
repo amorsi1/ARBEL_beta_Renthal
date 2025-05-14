@@ -1,12 +1,20 @@
 # ARBEL(beta) 
 This repository contains tools for the beta version  of ARBEL (Automated Recognition of Behavioral Enhanced with Light). 
 
+## **License**
+[![License: CC BY-NC-ND 4.0](https://img.shields.io/badge/License-CC%20BY--NC--ND%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc-nd/4.0/)
+
+This project is licensed under the Creative Commons Attribution-NonCommercial-NoDerivatives 4.0 International License (CC BY-NC-ND 4.0).
+
+
+
 ## **Citation**
 ARBEL: A Machine Learning Tool with Light-Based Image Analysis for Automatic Classification of 3D Pain Behaviors.
 Omer Barkai, Biyao Zhang,  Bruna Lenfers Turnes, Maryam Arab,  David A Yarmolinsky, Zihe Zhang, Lee B Barrett,  Clifford J Woolf  
 [bioRxiv preprint] - doi: https://doi.org/10.1101/2024.12.01.625907  
 
 Please cite our work and follow our publication updates.
+
 
 ---
 ## **ARBEL_TrainClassifier.py**
@@ -89,9 +97,3 @@ This project requires the following libraries and tools to run successfully:
 - **Operating System**: Linux or Windows recommended (with compatible Python environment).
 - **Video Backend**: Ensure OpenCV is installed and configured properly for video handling.
 - GPU recommended. 
-
-### **License**
-This software package provided without warranty of any kind and is licensed under the GNU General Public License v3.0. 
-
-
-Be sure to follow publication updates. Please cite us.

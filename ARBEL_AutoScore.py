@@ -16,7 +16,7 @@ User-Defined Parameters:
 - `Project`: Path to the main folder containing experimental data.
 - `Experiments`: List of experimental folders to process. An experiment folder should contain all videos.
 - `Behavior_classifiers`: List of pre-trained classifier files for behavior prediction.
-- Feature extraction parameters such as `pix_threshold`, `ç`, and `square_size`.
+- Feature extraction parameters such as `pix_threshold`, `bp_pixbrt_list`, and `square_size`.
 - Video creation options such as resolution, FPS, and input/output formats.
 
 Workflow:
@@ -45,7 +45,7 @@ tic()
 #%% USER DEFINED FIELDS
 #######################
 
-create_videos=0.5 # Slower; Adjust resolution (0-to-1) for faster results.
+create_videos=1 # Slower; Adjust resolution (0-to-1) for faster results.
 runDLC=0 # If videos were not DeepLabCutted then true
 
 fps = 45
@@ -114,7 +114,7 @@ for Experiment in Experiments:
     pose_file_list = glob.glob(videos_folder + '/*.' + PoseDataFileType)
     pose_file_list = sorted([os.path.basename(file) for file in pose_file_list])  # for list of sessionfiles without folder
     pose_ID = sorted([os.path.basename(file).split('DLC')[0] for file in pose_file_list])
-    data_summary= pd.DataFrame()
+    data_summary=pd.DataFrame()
     data_subjects = pd.DataFrame(pose_ID, columns=[f'{Experiment}_Subject'])
 
     print(f'Experiment: {Experiment} - with {Behavior_classifiers}')
